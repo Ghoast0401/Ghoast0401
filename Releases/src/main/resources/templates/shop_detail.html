@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>食べトモ - 店舗詳細</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="../static/css/style.css" th:href="@{/css/style.css}">
+
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+</head>
+
+<body>
+
+	<div th:replace="~{fragments/header :: main-header(false)}"></div>
+
+	<main class="container">
+		<!-- 削除申請送信後などのフラッシュメッセージ -->
+		<div th:if="${message}" th:text="${message}"
+			style="background-color:#e8f5e9; color:#2e7d32; padding:10px 15px; border-radius:6px; margin-bottom:15px;"></div>
+
+		<section class="shop-info-section">
+			<!-- 店舗名と保存ボタンを横並びにする -->
+			<div style="display: flex; align-items: center; justify-content: space-between;">
+				<h2 th:text="${detail.name}" style="margin: 0;">麺屋 小金</h2>
+				<button class="favorite-btn" 
+						th:classappend="${detail.isFavorite != null && detail.isFavorite} ? 'active' : ''"
+						th:data-shop-id="${detail.id}" 
+						onclick="toggleShopFavorite(this)">
+					<span class="icon">♥</span> 
+					<span class="text" th:text="${detail.isFavorite != null && detail.isFavorite} ? '保存済み' : '保存する'">保存する</span>
+				</button>
+			</div>
+			<div class="shop-meta">
+				<p><strong>ジャンル：</strong><span th:text="${detail.genre}">ラーメン</span></p>
+				<p><strong>エリア：</strong><span th:text="${detail.area}">武蔵新城</span></p>
+			</div>
+
+			<!-- 削除申請ボタン。自分が登録した店舗のときだけ表示する -->
+			<div th:if="${account != null and detail.createdByUserId != null and detail.createdByUserId == account.id}" style="margin-top: 15px; text-align: right;">
+				<button type="button" onclick="toggleDeleteRequestForm()" class="detail-btn"
+					style="background-color: #ccc; color: #333; font-size: 12px; padding: 5px 10px; border: none; cursor: pointer;">
+					この店舗の削除を申請する
+				</button>
+
+				<div id="delete-request-form" style="display: none; margin-top: 10px; text-align: left; background-color: #f9f9f9; padding: 15px; border-radius: 8px;">
+					<form th:action="@{/shop/{id}/delete-request(id=${detail.id})}" method="post"
+						  onsubmit="return confirm('本当に削除申請を送信しますか？管理者の承認後に非表示になります。');">
+
+						<label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">削除理由</label>
+						<textarea name="reason" rows="3" required placeholder="例：閉店したため、重複登録のため、など"
+							style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;"></textarea>
+
+						<div class="btn-group" style="margin-top: 10px; justify-content: flex-start; gap: 10px;">
+							<button type="submit" class="submit-btn" style="width: auto; padding: 6px 16px; font-size: 13px;">申請する</button>
+							<button type="button" onclick="toggleDeleteRequestForm()" class="back-btn" style="padding: 6px 16px; font-size: 13px;">キャンセル</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</section>
+
+		<div class="tabs">
+			<button class="tab-btn active" onclick="switchTab('shop-detail-tab', this)">店舗情報</button>
+			<button class="tab-btn" onclick="switchTab('reviews-tab', this)">レビュー (<span th:text="${detail.reviews != null ? detail.reviews.size() : 0}">1</span>)</button>
+		</div>
+
+		<div id="shop-detail-tab" class="tab-content active">
+			<h3>店舗基本情報</h3>
+			<table class="info-table">
+				<tr>
+					<th>店舗名</th>
+					<td th:text="${detail.name}">麺屋 小金</td>
+				</tr>
+				<tr>
+					<th>ジャンル</th>
+					<td th:text="${detail.genre}">ラーメン</td>
+				</tr>
+				<tr>
+					<th>エリア</th>
+					<td th:text="${detail.area}">武蔵新城</td>
+				</tr>
+				<tr>
+					<th>住所</th>
+					<td>
+						<!-- 静的表示用の住所を「津久井ビル 1F」に設定 -->
+						<span th:text="${detail.address != null ? detail.address : '未登録'}">〒211-0045 神奈川県川崎市中原区上新城２丁目１−２７ 津久井ビル 1F</span>
+
+						<!-- hrefに直接エンコード済みの検索URLをセットし、th:hrefでアプリ起動時の動的URLをセット -->
+						<a href="https://www.google.com/maps/search/?api=1&query=%E9%BA%BA%E5%B1%8B%20%E5%B0%8F%E9%87%91%20%E3%80%92211-0045%20%E7%A5%9E%E5%A5%88%E5%B7%9D%E7%9C%8C%E5%B7%9D%E5%B4%8E%E5%B8%82%E4%B8%AD%E5%8E%9F%E5%8C%BA%E4%B8%8A%E6%96%B0%E5%9F%8E%EF%BC%92%E4%B8%81%E7%9B%AE%EF%BC%91%E2%88%92%EF%BC%92%EF%BC%97%20%E6%B4%A5%E4%B9%85%E4%BA%95%E3%83%93%E3%83%AB%201F"
+						   th:href="${'https://www.google.com/maps/search/?api=1&query=' + #uris.escapeQueryParam((detail != null ? detail.name : '') + ' ' + (detail != null && detail.address != null ? detail.address : ''))}"
+						   target="_blank"
+						   rel="noopener noreferrer"
+						   class="map-link-btn">
+							Googleマップで見る ↗
+						</a>
+					</td>
+				</tr>
+				<tr>
+					<th>営業時間</th>
+					<td th:text="${detail.businessHours != null and !#strings.isEmpty(detail.businessHours) ? detail.businessHours : '未登録'}">11:30〜14:30 / 17:30〜21:30</td>
+				</tr>
+				<tr>
+					<th>予算</th>
+					<td th:text="${detail.budget != null ? detail.budget + '円' : '未登録'}">3000円</td>
+				</tr>
+			</table>
+
+			<div th:if="${detail.photoUrls != null and !detail.photoUrls.isEmpty()}" style="margin-top: 20px;">
+				<h3>お店の写真</h3>
+				<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+					<img th:each="url : ${detail.photoUrls}" th:src="@{${url}}" alt="お店の写真"
+						 style="width: 150px; height: 150px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;">
+				</div>
+			</div>
+
+			<h3>周辺地図</h3>
+			<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3244.662691957448!2d139.62862537461342!3d35.586716472617894!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x6018f5c83f54d8f1%3A0x8962ce276978cd4c!2z6bq65bGLIOWwj-mHkQ!5e0!3m2!1sja!2sjp!4v1783317932749!5m2!1sja!2sjp"
+			        th:src="${detail != null && detail.mapEmbedUrl != null ? detail.mapEmbedUrl : 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3244.662691957448!2d139.62862537461342!3d35.586716472617894!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x6018f5c83f54d8f1%3A0x8962ce276978cd4c!2z6bq65bGLIOWwj-mHkQ!5e0!3m2!1sja!2sjp!4v1783317932749!5m2!1sja!2sjp'}"
+			        width="100%"
+			        height="350"
+			        style="border:0; border-radius: 8px;"
+			        allowfullscreen=""
+			        loading="lazy"
+			        referrerpolicy="strict-origin-when-cross-origin">
+			</iframe>
+		</div>
+
+		<div id="reviews-tab" class="tab-content">
+    <section class="review-section">
+
+        <!-- 見出しとボタンを横並びにする工夫 -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;">カスタマーレビュー</h3>
+
+            <!-- 管理者（ADMIN）じゃない場合だけ、この中身を表示する -->
+            <div th:unless="${account != null and account.role == 'ADMIN'}">
+
+                <!-- ① ゲスト（未ログイン）の場合：ログイン画面へ誘導 -->
+                <a sec:authorize="isAnonymous()"  href="/login" th:href="@{/login}" class="review-btn">
+                    ログインして投稿する
+                </a>
+
+                <!-- ② 一般ユーザーの場合：レビュー投稿画面へ -->
+                <!-- ※ URL部分は、実際の投稿画面の作りに合わせて変えてください -->
+                <a sec:authorize="isAuthenticated()" href="/review/form" th:href="@{/review/form/{id}(id=${detail.id})}" class="review-btn">
+                    レビューを投稿する
+                </a>
+
+            </div>
+        </div>
+
+        <div class="review-card" th:each="review : ${detail.reviews}">
+            <div class="review-header">
+                <span class="stars" th:text="${'★'.repeat(review.rating) + '☆'.repeat(5 - review.rating)}">★★★★☆</span>
+                <span class="review-user" th:text="${review.username}"></span>
+                <span class="review-date" th:text="${#temporals.format(review.createdAt, 'yyyy/MM/dd')}">2026/07/03</span>
+            </div>
+
+            <p class="review-body" th:text="${review.comment}">
+                ここにレビュー本文が自動で入ります。
+            </p>
+            <div th:if="${review.photoUrls != null and !review.photoUrls.isEmpty()}"
+                 style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                <img th:each="url : ${review.photoUrls}" th:src="@{${url}}" alt="レビュー写真"
+                     style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;">
+            </div>
+             <!-- いいねボタンと通報リンクを横並びにする -->
+             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                <button class="like-btn" 
+                        th:classappend="${review.isLiked != null && review.isLiked} ? 'active' : ''"
+                        th:data-review-id="${review.id}" 
+                        onclick="toggleReviewLike(this)">
+                    <span class="icon">👍</span> 
+                    <span class="count" th:text="${review.likeCount != null ? review.likeCount : 0}">0</span>
+                </button>
+                <a th:href="@{/review/{id}/report(id=${review.id}, shopId=${detail.id})}" 
+                   style="font-size: 11px; color: #999; text-decoration: underline;">
+                   このレビューを通報する
+                </a>
+            </div>
+        </div>
+
+    </section>
+</div>
+	</main>
+
+	<script>
+		// --- タブ切り替え制御（不要になった地図の再計算処理を削除） ---
+		function switchTab(tabId, element) {
+			const contents = document.querySelectorAll('.tab-content');
+			contents.forEach(content => content.classList.remove('active'));
+
+			const buttons = document.querySelectorAll('.tab-btn');
+			buttons.forEach(button => button.classList.remove('active'));
+
+			document.getElementById(tabId).classList.add('active');
+			element.classList.add('active');
+		}
+
+		// --- 削除申請フォームの開閉 ---
+		function toggleDeleteRequestForm() {
+			const form = document.getElementById('delete-request-form');
+			form.style.display = (form.style.display === 'none') ? 'block' : 'none';
+		}
+		
+		// --- お店保存の切り替え ---
+		async function toggleShopFavorite(button) {
+			const shopId = button.getAttribute('data-shop-id');
+			const textSpan = button.querySelector('.text');
+			const isActive = button.classList.contains('active');
+			const url = isActive ? `/api/shop/${shopId}/unfavorite` : `/api/shop/${shopId}/favorite`;
+
+			try {
+				const response = await fetch(url, { method: 'POST' });
+				if (response.ok) {
+					button.classList.toggle('active');
+					textSpan.textContent = isActive ? '保存する' : '保存済み';
+				} else {
+					alert('エラーが発生しました。ログインしているか確認してください。');
+				}
+			} catch (error) {
+				console.error('通信エラー:', error);
+			}
+		}
+
+		// --- レビューいいねの切り替え ---
+		async function toggleReviewLike(button) {
+			const reviewId = button.getAttribute('data-review-id');
+			const countSpan = button.querySelector('.count');
+			const isActive = button.classList.contains('active');
+			let count = parseInt(countSpan.textContent);
+			const url = isActive ? `/api/review/${reviewId}/unlike` : `/api/review/${reviewId}/like`;
+
+			try {
+				const response = await fetch(url, { method: 'POST' });
+				if (response.ok) {
+					button.classList.toggle('active');
+					countSpan.textContent = isActive ? (count - 1) : (count + 1);
+				} else {
+					alert('エラーが発生しました。');
+				}
+			} catch (error) {
+				console.error('通信エラー:', error);
+			}
+		}
+	</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+	<head>
+	<meta charset="UTF-8">
+	<title>社内食べログ - 店舗情報編集</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="../static/css/style.css" th:href="@{/css/style.css}">
+</head>
+ 
+<body class="admin-body">
+ 
+	<div th:replace="~{fragments/header :: main-header(false)}"></div>
+ 
+	<div class="admin-workspace">
+		<main class="admin-main-content" style="max-width: 640px;">
+ 
+			<div class="shop-info-section">
+				<h2>店舗情報編集</h2>
+			</div>
+			<form th:action="@{/admin/shops/{id}/edit(id=${shopForm.id})}"
+				  th:object="${shopForm}" method="post" enctype="multipart/form-data" class="shop-edit-form">
+ 
+				<!-- idはURLに含めているので隠しフィールドは不要。念のため保持したい場合は以下を利用 -->
+				<input type="hidden" th:field="*{id}" />
+ 
+				<div class="form-row">
+					<label for="name">店舗名</label>
+					<input type="text" id="name" th:field="*{name}" required />
+				</div>
+ 
+				<div class="form-row">
+					<label for="area">エリア</label>
+					<input type="text" id="area" th:field="*{area}" required />
+				</div>
+ 
+				<div class="form-row">
+					<label for="address">住所</label>
+					<input type="text" id="address" th:field="*{address}" required />
+				</div>
+ 
+				<div class="form-row">
+					<label for="genre">ジャンル</label>
+
+					<div class="genre-breadcrumb" id="genre-breadcrumb"></div>
+					<div class="genre-options" id="genre-options"></div>
+					<div class="genre-selected-display" id="genre-selected-display"></div>
+
+					<!-- 実際に送信されるのはこのhiddenの値。th:fieldで既存のジャンル値が初期値として入り、genre_picker.jsが自動でパンくずを復元する -->
+					<input type="hidden" id="genre" th:field="*{genre}" required />
+				</div>
+ 
+				<div class="form-row">
+					<label for="mapEmbedUrl">Googleマップ埋め込みURL</label>
+					<textarea id="mapEmbedUrl" th:field="*{mapEmbedUrl}" rows="3"></textarea>
+				</div>
+
+				<div class="form-row">
+					<label for="businessHours">営業時間</label>
+					<input type="text" id="businessHours" th:field="*{businessHours}" placeholder="例：11:00〜22:00（不定休）">
+				</div>
+				
+				<div class="form-row">
+					<label for="status">ステータス</label>
+					<select id="status" th:field="*{status}">
+						<option value="PENDING">審査中</option>
+						<option value="APPROVED">公開中</option>
+						<option value="REJECTED">非公開</option>
+					</select>
+				</div>
+
+				<!-- 既存の写真 -->
+				<div class="form-row" th:if="${!#lists.isEmpty(shopForm.photos)}">
+					<label>登録済みの写真</label>
+					<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+						<img th:each="photo : ${shopForm.photos}" th:src="${photo.url}"
+							 style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
+					</div>
+				</div>
+
+				<!-- 写真の追加アップロード -->
+				<div class="form-row">
+					<label for="photos">写真を追加</label>
+					<input type="file" id="photos" name="photos" accept="image/*" multiple>
+				</div>
+ 
+				<div class="action-area" style="text-align: left; margin-top: 20px;">
+					<button type="submit" class="add-shop-btn">更新する</button>
+					<a th:href="@{/admin}">
+						<button type="button" class="detail-btn">キャンセル</button>
+					</a>
+				</div>
+			</form>
+ 
+		</main>
+	</div>
+
+	<script th:inline="javascript">
+		window.genreTreeData = /*[[${genreGroups}]]*/ [];
+	</script>
+	<script th:src="@{/js/genre_picker.js}"></script>
+	<script>
+		initGenrePicker({
+			treeVar: window.genreTreeData,
+			breadcrumbId: 'genre-breadcrumb',
+			optionsId: 'genre-options',
+			displayId: 'genre-selected-display',
+			hiddenInputId: 'genre'
+		});
+	</script>
+
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>食べトモ - トップページ</title>
+	<link rel="stylesheet" href="../static/css/style.css" th:href="@{/css/style.css}">
+	<!-- fetch(AJAX)でCSRFトークンを送るためのmetaタグ。Spring SecurityでCSRF保護が有効な場合に必要 -->
+	<meta name="_csrf" th:content="${_csrf.token}" th:if="${_csrf != null}"/>
+	<meta name="_csrf_header" th:content="${_csrf.headerName}" th:if="${_csrf != null}"/>
+</head>
+
+<body>
+
+    <div th:replace="~{fragments/header :: main-header(false)}"></div>
+
+	<main>
+        <!-- ★店舗登録用エリア（レビュー機能は除外） -->
+        <div class="action-area">
+            <a href="/shop/register" th:href="@{/shop/register}" class="add-shop-btn" style="text-decoration: none; display: inline-block;">
+                + 新しい店舗を登録する
+            </a>
+        </div>
+		
+		<!-- ★検索・絞り込みエリア -->
+    <div class="search-area" style="background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <form action="/shop/search" th:action="@{/shop/search}" method="get" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            
+            <!-- ① フリーワード検索 -->
+            <div style="flex-grow: 2; min-width: 200px;">
+                <input type="text" 
+                       id="keyword-input"
+                       name="keyword" 
+                       th:value="${keyword}" 
+                       placeholder="店舗名やキーワード" 
+                       list="shop-suggestions"
+                       autocomplete="off"
+                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                
+                <!-- 予測変換の候補を表示するdatalist -->
+                <datalist id="shop-suggestions"></datalist>
+            </div>
+
+           <!-- ② ジャンル（連動型ドリルダウン） -->
+            <div style="flex-grow: 1; min-width: 250px; display: flex; gap: 5px;">
+                <!-- 大分類（name="genreGroup" を追加） -->
+				<select id="search-group" name="genreGroup" style="width: 50%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
+					<option value="">大分類...</option>
+    				<!-- 選択状態を保持できるように th:selected を追加 -->
+			 		<option th:each="g : ${genreList}" 
+    				th:value="${g.label}" 
+            		th:text="${g.label}"
+            		th:selected="${param.genreGroup != null and param.genreGroup[0] == g.label}">
+    			</option>
+				</select>
+
+                <!-- 2つ目：小分類（ラーメン、カレーなど） ※こちらを name="genre" としてサーバーに送信する -->
+                <select id="search-category" name="genre" style="width: 50%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
+                    <option value="">すべてのジャンル</option>
+                    <!-- ここの中身は、左側で選んだ大分類に合わせてJavaScriptで自動生成されます -->
+                </select>
+            </div>
+            
+            <!-- ③ 並べ替え -->
+            <div style="flex-grow: 1; min-width: 150px;">
+                <select name="sort" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="new" th:selected="${param.sort != null and param.sort[0] == 'new'}">新着順</option>
+                    <option value="rating" th:selected="${param.sort != null and param.sort[0] == 'rating'}">評価が高い順</option>
+                    <option value="reviewCount" th:selected="${param.sort != null and param.sort[0] == 'reviewCount'}">レビュー件数が多い順</option>
+                    
+                </select>
+            </div>
+
+            <!-- ④ 検索ボタン -->
+            <button type="submit" style="background-color: #ff9900; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; white-space: nowrap;">
+                検索
+            </button>
+        </form>
+    </div>
+		<h2>店舗一覧</h2>
+		<div class="shop-list">
+			
+			 <div th:if="${shopPage.empty}" style="text-align: center; padding: 40px 0; color: #666;">
+        <p style="font-size: 16px;">該当する店舗が見つかりませんでした。</p>
+        <p style="font-size: 13px; margin-top: 8px;">キーワードやジャンルの条件を変えて、もう一度検索してみてください。</p>
+    </div>
+    <div class="shop-card" th:each="shop : ${shopPage}" th:data-genre="${shop.genre}">
+
+				<div class="shop-photo-row" th:if="${!#lists.isEmpty(shop.photos)}">
+					<img th:each="photo, iter : ${shop.photos}" th:if="${iter.index < 3}"
+						th:src="@{${photo.filePath}}" alt="店舗写真" class="shop-photo-thumb">
+					<span th:if="${shop.photos.size() > 3}" class="shop-photo-more"
+						th:text="'+' + ${shop.photos.size() - 3}"></span>
+				</div>
+				
+
+				<h3 th:text="${shop.name}">カレーハウス・タベログ（仮表示）</h3>
+				<button type="button" th:if="${account != null}"
+					class="favorite-btn" th:classappend="${shop.favoritedByCurrentUser} ? 'is-favorited' : ''"
+					th:data-shop-id="${shop.id}"
+					th:text="${shop.favoritedByCurrentUser} ? '★ お気に入り済み' : '☆ お気に入りに追加'">
+				</button>
+				
+
+				<!-- 平均評価（星表示） -->
+				<div class="shop-rating" th:if="${shop.reviewCount > 0}">
+    <span class="stars" 
+          th:text="${'★'.repeat(shop.roundedRating) + '☆'.repeat(5 - shop.roundedRating)}">
+    </span>
+    <span th:text="${#numbers.formatDecimal(shop.averageRating, 1, 1)}">4.2</span>
+    <span class="review-count" th:text="'（' + ${shop.reviewCount} + '件）'">（12件）</span>
+</div>
+<div class="shop-rating no-rating" th:if="${shop.reviewCount == 0}">
+    まだレビューがありません
+</div>
+
+				<p>ジャンル：<span th:text="${shop.genre}">カレー</span> | エリア：<span th:text="${shop.area}">新橋</span></p>
+
+				<div style="margin-top: 15px;">
+					<a href="/shop/detail" th:href="@{/shop/detail/{id}(id=${shop.id})}" class="detail-btn" style="text-decoration: none; display: inline-block;">詳細を見る</a>
+				</div>
+			</div>
+
+			<!-- Thymeleaf開発用のダミーデータ（画面描画時は削除されます） -->
+			<div class="shop-card" th:remove="all">
+				<h3>居酒屋 ぷらんと（確認用ダミー）</h3>
+				<p>ジャンル：居酒屋 | エリア：新宿</p>
+				<div style="margin-top: 15px;">
+					<button class="detail-btn">詳細を見る</button>
+				</div>
+			</div>
+			
+		</div>
+		
+		<!-- ページネーション（複数ページある場合のみ表示） -->
+<div th:if="${shopPage != null and shopPage.totalPages > 1}" style="text-align: center; margin-top: 30px;">    <ul style="list-style: none; display: inline-flex; gap: 8px; padding: 0;">
+        
+        <!-- 前へ -->
+        <li th:if="${!shopPage.first}">
+            <!-- 検索条件を引き継ぎつつ、ページ番号(page)を -1 してリンクを作る -->
+            <a th:href="@{/shop/search(keyword=${param.keyword}, genreGroup=${param.genreGroup}, genre=${param.genre}, sort=${param.sort}, page=${shopPage.number - 1})}" 
+               style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #333; background-color: white;">&laquo; 前へ</a>
+        </li>
+
+        <!-- ページ番号（例: 1 2 3 4 5） -->
+        <li th:each="i : ${#numbers.sequence(0, shopPage.totalPages - 1)}">
+            <a th:href="@{/shop/search(keyword=${param.keyword}, genreGroup=${param.genreGroup}, genre=${param.genre}, sort=${param.sort}, page=${i})}"
+               th:text="${i + 1}"
+               th:style="${i == shopPage.number} ? 'padding: 8px 12px; border: 1px solid #ff9900; border-radius: 4px; text-decoration: none; color: white; background-color: #ff9900; font-weight: bold;' : 'padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #333; background-color: white;'">
+            </a>
+        </li>
+
+        <!-- 次へ -->
+        <li th:if="${!shopPage.last}">
+            <!-- ページ番号(page)を +1 してリンクを作る -->
+            <a th:href="@{/shop/search(keyword=${param.keyword}, genreGroup=${param.genreGroup}, genre=${param.genre}, sort=${param.sort}, page=${shopPage.number + 1})}" 
+               style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; text-decoration: none; color: #333; background-color: white;">次へ &raquo;</a>
+        </li>
+        
+    </ul>
+</div>
+	</main>
+	<!-- ジャンル連動プルダウン ＆ 予測変換用のJavaScript -->
+	<script th:inline="javascript">
+		// --- ① ジャンル連動プルダウンの処理 ---
+const genreTreeData = /*[[${genreList}]]*/ [];
+// URLに残っている選択値を保持
+const currentGenreGroupValue = /*[[${param.genreGroup != null and !param.genreGroup.isEmpty() ? param.genreGroup[0] : null}]]*/ null;
+const currentGenreValue = /*[[${param.genre != null and !param.genre.isEmpty() ? param.genre[0] : null}]]*/ null;
+
+const groupSelect = document.getElementById('search-group');
+const categorySelect = document.getElementById('search-category');
+
+function populateCategoryOptions(groupLabel, selectedValue) {
+    categorySelect.innerHTML = '<option value="">すべてのジャンル</option>';
+    if (!groupLabel) return;
+
+    const group = genreTreeData.find(g => g.label === groupLabel);
+    if (!group || !group.categories) return;
+
+    group.categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.label;
+        option.text = category.label;
+        if (selectedValue && category.label === selectedValue) {
+            option.selected = true;
+        }
+        categorySelect.appendChild(option);
+    });
+}
+
+// 大分類が変更されたときの処理（カードを隠す処理は削除し、小分類の再生成のみ行う）
+groupSelect.addEventListener('change', function() {
+    populateCategoryOptions(this.value, null);
+});
+
+// --- ページ読み込み時：検索結果に残っている値から選択状態を復元 ---
+(function restoreGenreSelection() {
+    // サーバーから渡された大分類の値があれば、それを使って小分類のプルダウンを生成
+    if (currentGenreGroupValue) {
+        populateCategoryOptions(currentGenreGroupValue, currentGenreValue);
+    }
+})();
+
+		// --- ② 店舗名の予測変換（サジェスト）処理 ---
+		const keywordInput = document.getElementById('keyword-input');
+		const suggestionsDatalist = document.getElementById('shop-suggestions');
+
+		if (keywordInput) {
+			keywordInput.addEventListener('input', function() {
+				const keyword = this.value.trim();
+
+				// 1文字未満の場合は候補を消去して終了
+				if (keyword.length < 1) {
+					suggestionsDatalist.innerHTML = '';
+					return;
+				}
+
+				// バックエンドAPIを呼び出して店舗名候補を取得
+				fetch(`/api/shops/suggest?keyword=${encodeURIComponent(keyword)}`)
+					.then(response => response.json())
+					.then(data => {
+						// 既存の候補をクリア
+						suggestionsDatalist.innerHTML = '';
+
+						// 取得した店舗名を <option> として追加
+						data.forEach(name => {
+							const option = document.createElement('option');
+							option.value = name;
+							suggestionsDatalist.appendChild(option);
+						});
+					})
+					.catch(error => console.error('予測変換の取得に失敗しました:', error));
+			});
+		}
+		// --- ③ お気に入りボタンの処理（AJAXで即時反映、ページ遷移なし） ---
+		document.querySelectorAll('.favorite-btn').forEach(btn => {
+			btn.addEventListener('click', function() {
+				const shopId = this.getAttribute('data-shop-id');
+				const csrfMeta = document.querySelector('meta[name="_csrf"]');
+				const csrfHeaderMeta = document.querySelector('meta[name="_csrf_header"]');
+
+				const headers = {};
+				// Spring Securityのデフォルト設定でCSRFが有効な場合はヘッダーが必要
+				if (csrfMeta && csrfHeaderMeta) {
+					headers[csrfHeaderMeta.content] = csrfMeta.content;
+				}
+
+				fetch(`/shop/${shopId}/favorite/toggle`, { method: 'POST', headers })
+					.then(response => response.json())
+					.then(data => {
+						if (data.favorited) {
+							this.classList.add('is-favorited');
+							this.textContent = '★ お気に入り済み';
+						} else {
+							this.classList.remove('is-favorited');
+							this.textContent = '☆ お気に入りに追加';
+						}
+					})
+					.catch(error => console.error('お気に入りの更新に失敗しました:', error));
+			});
+		});
+
+	</script>
+</body>
+</html>

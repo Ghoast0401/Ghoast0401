@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<!-- ★ xmlns:sec を追加して、Spring Securityの機能を呼び出せるようにします -->
+<html lang="ja" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+    <header th:fragment="main-header(hideMypage)">
+        <div style="display: flex; align-items: center;">
+            <a th:href="@{/}" style="text-decoration: none; color: inherit;">
+                <h1>食べトモ</h1>
+            </a>
+        </div>
+
+        <div class="header-menu" style="margin-left: auto;">
+            
+            <!-- ① ゲスト（未ログイン）の場合：isAnonymous() を使う -->
+            <div sec:authorize="isAnonymous()" style="display: flex; gap: 10px;">
+                <a th:href="@{/login}" class="back-btn" style="margin-left: 0;">ログイン</a>
+                <a th:href="@{/register}" class="back-btn" style="margin-left: 0;">新規登録</a>
+            </div>
+
+            <!-- ② ログイン済みの場合：isAuthenticated() を使う -->
+            <div sec:authorize="isAuthenticated()" style="display: flex; align-items: center; gap: 10px;">
+                
+                <!-- 一般ユーザー（ADMIN権限を持っていない人） -->
+                <a sec:authorize="!hasAuthority('ADMIN') and !hasRole('ADMIN')" th:if="${hideMypage != true}" th:href="@{/mypage}" class="back-btn" style="margin-left: 0; background-color: white; color: #ff9900; font-weight: bold;">
+                    マイページ
+                </a>
+                
+                <!-- 管理者ダッシュボード（ADMIN権限を持っている人） -->
+                <a sec:authorize="hasAuthority('ADMIN') or hasRole('ADMIN')" th:href="@{/admin}" class="back-btn" style="margin-left: 0; background-color: white; color: #ff9900; font-weight: bold;">
+                    ダッシュボード
+                </a>
+                
+                <form th:action="@{/logout}" method="post" style="margin: 0;">
+                    <button type="submit" class="logout-btn-admin">ログアウト</button>
+                </form>
+            </div>
+            
+        </div>
+    </header>
+</body>
+</html>

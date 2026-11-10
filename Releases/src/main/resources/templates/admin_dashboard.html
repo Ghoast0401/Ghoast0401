@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>社内食べログ - 管理者ダッシュボード</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="stylesheet" href="../static/css/style.css" th:href="@{/css/style.css}">
+</head>
+
+<body class="admin-body">
+
+	<div th:replace="~{fragments/header :: main-header(false)}"></div>
+
+	<!-- 管理者用ワークスペース（サイドバー ＋ メイン） -->
+	<div class="admin-workspace">
+		
+		<!-- 左側：サイドバーメニュー -->
+		<nav class="sidebar">
+			<ul class="sidebar-menu">
+				<li><button class="tab-btn is-active" data-tab="users">ユーザー管理</button></li>
+				<li><button class="tab-btn" data-tab="shops">店舗管理</button></li>
+				<li><button class="tab-btn" data-tab="reviews">レビュー管理</button></li>
+				<li>
+					<button class="tab-btn" data-tab="approvals">
+						通報・報告管理
+						<!--
+							Controller側でModelに pendingApprovalCount (int) を詰めてください。
+							例: model.addAttribute("pendingApprovalCount",
+							        reportRepository.countByStatus("PENDING"));
+						-->
+						<span th:if="${pendingApprovalCount != null and pendingApprovalCount > 0}"
+							  th:text="${pendingApprovalCount}"
+							  style="display:inline-block; min-width:18px; padding:1px 6px; margin-left:6px;
+							         background-color:#e74c3c; color:#fff; border-radius:10px;
+							         font-size:11px; font-weight:bold; text-align:center;">3</span>
+					</button>
+				</li>
+				<li>
+					<button class="tab-btn" data-tab="editApprovals">
+						編集申請承認
+						<!--
+							Controller側でModelに pendingEditApprovalCount (int) を詰めてください。
+							例: model.addAttribute("pendingEditApprovalCount",
+							        editRequestRepository.countByStatus(EditRequestStatus.PENDING));
+						-->
+						<span th:if="${pendingEditApprovalCount != null and pendingEditApprovalCount > 0}"
+							  th:text="${pendingEditApprovalCount}"
+							  style="display:inline-block; min-width:18px; padding:1px 6px; margin-left:6px;
+							         background-color:#e74c3c; color:#fff; border-radius:10px;
+							         font-size:11px; font-weight:bold; text-align:center;">2</span>
+					</button>
+				</li>
+				<li><button class="tab-btn" data-tab="mypage">マイページ</button></li>
+			</ul>
+		</nav>
+
+		<!-- 右側：メインコンテンツ -->
+		<main class="admin-main-content">
+			
+			<!-- 1. ユーザー管理 -->
+			<div class="tab-content is-active" id="users">
+				<div class="shop-info-section">
+					<h2>ユーザー管理</h2>
+				</div>
+				<p>登録されているユーザーのアカウント一覧です。</p>
+
+				<div class="search-area" style="margin-bottom: 12px;">
+					<input type="text" id="users-search" class="search-input"
+						placeholder="ユーザー名・権限で検索"
+						oninput="filterTable('users-table', 'users-noresult', this.value)" />
+				</div>
+
+				<table class="admin-table" id="users-table">
+					<thead>
+						<tr><th>ユーザーID</th><th>ユーザー名</th><th>権限</th><th>操作</th></tr>
+					</thead>
+					<tbody>
+						<!--
+							Controller側でModelに userList (List<User>) を詰めてください。
+							例: model.addAttribute("userList", userService.findAll());
+							Userが持つ想定フィールド: id, username, role (enum等文字列表示)
+						-->
+						<tr th:each="user : ${userList}">
+							<td th:text="${user.id}">1</td>
+							<td th:text="${user.username}">テスト太郎</td>
+							<td th:text="${user.role}">一般ユーザー</td>
+							<td>
+								<button class="detail-btn badge-sm"	th:onclick="|location.href='@{/admin/users/{id}(id=${user.id})}'|">詳細</button>
+							</td>
+						</tr>
+						<!-- データが無い場合の表示 -->
+						<tr th:if="${#lists.isEmpty(userList)}" class="no-data-row">
+							<td colspan="4">登録されているユーザーがいません。</td>
+						</tr>
+					</tbody>
+				</table>
+				<p id="users-noresult" class="no-result-msg" style="display:none;">該当するユーザーが見つかりません。</p>
+			</div>
+
+			<!-- 2. 店舗管理 -->
+			<div class="tab-content" id="shops">
+				<div class="shop-info-section">
+					<h2>店舗管理</h2>
+				</div>
+				<!-- 既存の緑ボタンクラスを流用！ -->
+				<div class="action-area" style="text-align: left;">
+					<a th:href="@{/admin/shops/new}">
+						<button type="button" class="add-shop-btn">＋ 新しい店舗を登録する</button>
+					</a>
+				</div>
+
+				<div class="search-area" style="margin-bottom: 12px;">
+					<input type="text" id="shops-search" class="search-input"
+						placeholder="店舗名・エリア・ジャンルで検索"
+						oninput="filterTable('shops-table', 'shops-noresult', this.value)" />
+				</div>
+
+				<table class="admin-table" id="shops-table">
+					<thead>
+						<tr><th>店舗ID</th><th>店舗名</th><th>エリア</th><th>ジャンル</th><th>ステータス</th><th>操作</th></tr>
+					</thead>
+					<tbody>
+						<!--
+							Controller側でModelに shopList (List<ShopEntity>) を詰めてください。
+							例: model.addAttribute("shopList", shopService.findAll());
+							※ DELETEDステータスのものはここには出さない想定（下のゴミ箱に出す）
+						-->
+						<tr th:each="shop : ${shopList}">
+							<td th:text="${shop.id}">101</td>
+							<td th:text="${shop.name}">カレーハウス・タベログ</td>
+							<td th:text="${shop.area}">新橋</td>
+							<td th:text="${shop.genre}">カレー</td>
+							<td th:text="${shop.status}">PENDING</td>
+							<td>
+								<a th:href="@{/admin/shops/{id}/edit(id=${shop.id})}">
+									<button type="button" class="detail-btn badge-sm">編集</button>
+								</a>
+								<form th:action="@{/admin/shops/{id}/delete(id=${shop.id})}" method="post" style="display:inline;"
+									  onsubmit="return confirm('この店舗を削除しますか？（ゴミ箱に移動します）');">
+									<button type="submit" class="detail-btn" style="padding: 4px 10px; font-size:12px; background-color:#e74c3c;">削除</button>
+								</form>
+							</td>
+						</tr>
+						<tr th:if="${#lists.isEmpty(shopList)}" class="no-data-row">
+							<td colspan="6">登録されている店舗がありません。</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<!-- ゴミ箱（論理削除済みの店舗） -->
+				<details style="margin-top: 25px;">
+					<summary style="cursor: pointer; font-weight: bold; color: #666;">
+						🗑 ゴミ箱（削除済み店舗）
+						<span th:if="${trashedShopList != null}" th:text="'（' + ${trashedShopList.size()} + '件）'"></span>
+					</summary>
+
+					<table class="admin-table" style="margin-top: 10px;">
+						<thead>
+							<tr><th>店舗ID</th><th>店舗名</th><th>削除日</th><th>操作</th></tr>
+						</thead>
+						<tbody>
+							<!--
+								Controller側でModelに trashedShopList (List<ShopEntity>, status="DELETED"のもの) を渡してください。
+								例: model.addAttribute("trashedShopList", shopRepository.findByStatus("DELETED"));
+							-->
+							<tr th:each="shop : ${trashedShopList}">
+								<td th:text="${shop.id}"></td>
+								<td th:text="${shop.name}"></td>
+								<td th:text="${#temporals.format(shop.createdAt, 'yyyy/MM/dd')}"></td>
+								<td>
+									<form th:action="@{/admin/shops/{id}/restore(id=${shop.id})}" method="post" style="display:inline;">
+										<button type="submit" class="detail-btn" style="padding: 4px 10px; font-size:12px; background-color:#4CAF50;">復元</button>
+									</form>
+									<form th:action="@{/admin/shops/{id}/delete-permanently(id=${shop.id})}" method="post" style="display:inline;"
+										  onsubmit="return confirm('完全に削除します。この操作は取り消せません。本当によろしいですか？');">
+										<button type="submit" class="detail-btn" style="padding: 4px 10px; font-size:12px; background-color:#333;">完全削除</button>
+									</form>
+								</td>
+							</tr>
+							<tr th:if="${trashedShopList == null or #lists.isEmpty(trashedShopList)}">
+								<td colspan="4">ゴミ箱は空です。</td>
+							</tr>
+						</tbody>
+					</table>
+				</details>
+				<p id="shops-noresult" class="no-result-msg" style="display:none;">該当する店舗が見つかりません。</p>
+			</div>
+
+			<!-- 3. レビュー管理 -->
+			<div class="tab-content" id="reviews">
+				<div class="shop-info-section">
+					<h2>レビュー管理</h2>
+				</div>
+				<p>投稿された口コミ・レビューの一覧と健全性の確認ができます。</p>
+
+				<div class="search-area" style="margin-bottom: 12px;">
+					<input type="text" id="reviews-search" class="search-input"
+						placeholder="店舗名・投稿者で検索"
+						oninput="filterTable('reviews-table', 'reviews-noresult', this.value)" />
+				</div>
+
+				<table class="admin-table" id="reviews-table">
+					<thead>
+						<tr><th>レビューID</th><th>店舗名</th><th>投稿者</th><th>評価</th><th>操作</th></tr>
+					</thead>
+					<tbody>
+						<!--
+							Controller側でModelに reviewList (List<Review>) を詰めてください。
+							例: model.addAttribute("reviewList", reviewService.findAll());
+							Reviewが持つ想定フィールド: id, shopName, username, rating
+						-->
+						<tr th:each="review : ${reviewList}">
+							<td th:text="${review.id}"></td>
+							<td th:text="${review.shop.name}"></td>
+							<td th:text="'ユーザーID: ' + ${review.userId}"></td>
+							<td th:text="${review.rating}"></td>
+							<td>
+								<a th:href="@{/admin/reviews/{id}(id=${review.id})}">
+									<button type="button" class="detail-btn badge-sm">詳細</button>
+								</a>
+							</td>
+						</tr>
+						<tr th:if="${#lists.isEmpty(reviewList)}" class="no-data-row">
+							<td colspan="5">レビューがありません。</td>
+						</tr>
+					</tbody>
+				</table>
+				<p id="reviews-noresult" class="no-result-msg" style="display:none;">該当するレビューが見つかりません。</p>
+			</div>
+
+			<!-- 4. 通報・報告管理 -->
+			<div class="tab-content" id="approvals">
+				<div class="shop-info-section">
+					<h2>通報・報告管理</h2>
+				</div>
+				<p>店舗・レビューの通報／問題報告の一覧です。承認すると実際に削除（非表示）されます。</p>
+
+				<div class="search-area" style="margin-bottom: 12px;">
+					<input type="text" id="approvals-search" class="search-input"
+						placeholder="対象名・申請理由で検索"
+						oninput="filterTable('approvals-table', 'approvals-noresult', this.value)" />
+				</div>
+
+				<table class="admin-table" id="approvals-table">
+					<thead>
+						<tr><th>申請ID</th><th>種別</th><th>対象</th><th>申請理由</th><th>申請日</th><th>操作</th></tr>
+					</thead>
+					<tbody>
+						<!--
+							Controller側でModelに approvalList (List<ReportEntity>) を詰めてください。
+							例: model.addAttribute("approvalList", reportRepository.findByStatusOrderByRequestedAtDesc("PENDING"));
+
+							各要素の想定フィールド:
+							- id
+							- targetType ("SHOP" or "REVIEW")
+							- targetLabel : 画面表示用の対象名（店舗名、または「レビュー: 本文の先頭30文字...」など）
+							  ※ ReportEntity自体にはtargetIdしか無いので、
+							     Controller側で店舗名/レビュー内容を引いてセットする詰め替え用DTOを
+							     用意するか、Thymeleaf側でtargetTypeに応じて別々に出し分ける必要があります。
+							- reason
+							- requestedAt
+						-->
+						<tr th:each="approval : ${approvalList}">
+							<td th:text="${approval.id}"></td>
+							<td th:text="${approval.targetType == 'SHOP'} ? '店舗' : 'レビュー'"></td>
+							<td th:text="${approval.targetLabel}">麺屋 小金</td>
+							<td th:text="${approval.reason}"></td>
+							<td th:text="${#temporals.format(approval.requestedAt, 'yyyy/MM/dd')}"></td>
+							<td>
+								<form th:action="@{/admin/approvals/{id}/approve(id=${approval.id})}" method="post" style="display:inline;">
+									<button type="submit" class="detail-btn badge-sm">承認</button>
+								</form>
+								<form th:action="@{/admin/approvals/{id}/reject(id=${approval.id})}" method="post" style="display:inline;">
+									<button type="submit" class="detail-btn" style="padding: 4px 10px; font-size:12px; background-color:#999;">却下</button>
+								</form>
+							</td>
+						</tr>
+						<tr th:if="${#lists.isEmpty(approvalList)}" class="no-data-row">
+							<td colspan="6">承認待ちの申請はありません。</td>
+						</tr>
+					</tbody>
+				</table>
+				<p id="approvals-noresult" class="no-result-msg" style="display:none;">該当する申請が見つかりません。</p>
+			</div>
+
+			<!-- 5. 編集申請承認 -->
+			<div class="tab-content" id="editApprovals">
+				<div class="shop-info-section">
+					<h2>編集申請承認</h2>
+				</div>
+				<p>店舗登録者からの編集申請一覧です。承認すると変更内容が店舗情報に反映されます。</p>
+
+				<div class="search-area" style="margin-bottom: 12px;">
+					<input type="text" id="editApprovals-search" class="search-input"
+						placeholder="店舗名・申請者で検索"
+						oninput="filterTable('editApprovals-table', 'editApprovals-noresult', this.value)" />
+				</div>
+
+				<table class="admin-table" id="editApprovals-table">
+					<thead>
+						<tr><th>申請ID</th><th>対象店舗</th><th>申請者</th><th>変更内容</th><th>補足</th><th>申請日</th><th>操作</th></tr>
+					</thead>
+					<tbody>
+						<!--
+							Controller側でModelに editApprovalList を詰めてください。
+							EditRequestEntityそのままではなく、画面表示用に詰め替えたDTOを渡す想定です。
+							（変更のあった項目だけを一覧化しておくと、テンプレート側の分岐が要らず楽です）
+
+							例: model.addAttribute("editApprovalList", editRequestService.findPendingForView());
+
+							DTO想定フィールド:
+							- id
+							- shopName        : 対象店舗名（表示用）
+							- requesterName   : 申請者のユーザー名（表示用）
+							- changes         : List<FieldDiff> … 変更のあった項目だけを詰めたリスト
+							    - FieldDiff.label    : "店舗名" "ジャンル" "エリア" "住所" "営業時間" など
+							    - FieldDiff.oldValue : 変更前の値
+							    - FieldDiff.newValue : 変更後の値
+							  ※ proposedXxx が null、または現在値と同じ項目は changes に含めない
+							    （＝「変更なし」の項目はここで既に除外されている前提）
+							- note            : 申請時の補足コメント（EditRequestEntity.note）
+							- requestedAt
+						-->
+						<tr th:each="approval : ${editApprovalList}">
+							<td th:text="${approval.id}"></td>
+							<td th:text="${approval.shopName}">麺屋 小金</td>
+							<td th:text="${approval.requesterName}">テスト太郎</td>
+							<td>
+								<!-- 変更のあった項目だけをBefore→Afterで並べる -->
+								<div th:each="diff : ${approval.changes}" style="font-size: 12px; margin-bottom: 4px;">
+									<strong th:text="${diff.label}">住所</strong>：
+									<span style="color:#c0392b; text-decoration: line-through;" th:text="${diff.oldValue}">旧住所</span>
+									→
+									<span style="color:#2e7d32;" th:text="${diff.newValue}">新住所</span>
+								</div>
+								<span th:if="${#lists.isEmpty(approval.changes)}" style="font-size: 12px; color: #999;">変更項目なし</span>
+							</td>
+							<td th:text="${approval.note}" style="font-size: 12px; color: #666;"></td>
+							<td th:text="${#temporals.format(approval.requestedAt, 'yyyy/MM/dd')}"></td>
+							<td>
+								<form th:action="@{/admin/edit-approvals/{id}/approve(id=${approval.id})}" method="post" style="display:inline;"
+									  onsubmit="return confirm('この内容で店舗情報を更新しますか？');">
+									<button type="submit" class="detail-btn badge-sm">承認</button>
+								</form>
+								<form th:action="@{/admin/edit-approvals/{id}/reject(id=${approval.id})}" method="post" style="display:inline;">
+									<button type="submit" class="detail-btn" style="padding: 4px 10px; font-size:12px; background-color:#999;">却下</button>
+								</form>
+							</td>
+						</tr>
+						<tr th:if="${#lists.isEmpty(editApprovalList)}" class="no-data-row">
+							<td colspan="7">承認待ちの編集申請はありません。</td>
+						</tr>
+					</tbody>
+				</table>
+				<p id="editApprovals-noresult" class="no-result-msg" style="display:none;">該当する申請が見つかりません。</p>
+			</div>
+
+			<!-- 6. マイページ -->
+			<div class="tab-content" id="mypage">
+				<div class="shop-info-section">
+					<h2>管理者マイページ</h2>
+				</div>
+				<p>管理者アカウントの情報を確認・変更します。</p>
+
+				<!--
+					Controller側でModelに loginAdmin (Admin/User) を詰めてください。
+					例: model.addAttribute("loginAdmin", adminService.getCurrentAdmin());
+				-->
+				<table class="admin-table" th:if="${loginAdmin}">
+					<tbody>
+						<tr><th>管理者ID</th><td th:text="${loginAdmin.id}"></td></tr>
+						<tr><th>ユーザー名</th><td th:text="${loginAdmin.username}"></td></tr>
+					</tbody>
+				</table>
+			</div>
+
+		</main>
+	</div>
+
+	<!-- タブ切り替え用JavaScript -->
+	<script>
+		const tabs = document.querySelectorAll('.tab-btn');
+		const contents = document.querySelectorAll('.tab-content');
+
+		tabs.forEach(tab => {
+			tab.addEventListener('click', () => {
+				tabs.forEach(t => t.classList.remove('is-active'));
+				contents.forEach(c => c.classList.remove('is-active'));
+
+				tab.classList.add('is-active');
+				const targetId = tab.getAttribute('data-tab');
+				document.getElementById(targetId).classList.add('is-active');
+			});
+		});
+	</script>
+
+	<!-- 各タブの検索（クライアント側フィルタ）用JavaScript -->
+	<script>
+		/**
+		 * テーブルを検索キーワードで絞り込む。
+		 * @param {string} tableId - 対象テーブルのid
+		 * @param {string} noResultId - 「該当なし」メッセージ要素のid
+		 * @param {string} keyword - 検索キーワード
+		 */
+		function filterTable(tableId, noResultId, keyword) {
+			const table = document.getElementById(tableId);
+			const noResultEl = document.getElementById(noResultId);
+			if (!table) return;
+
+			const kw = keyword.trim().toLowerCase();
+			const rows = table.querySelectorAll('tbody tr:not(.no-data-row)');
+			let visibleCount = 0;
+
+			rows.forEach(row => {
+				const text = row.textContent.toLowerCase();
+				const isMatch = kw === '' || text.includes(kw);
+				row.style.display = isMatch ? '' : 'none';
+				if (isMatch) visibleCount++;
+			});
+
+			// データが元々ゼロ件の場合（サーバー側の"no-data-row"）はそのまま表示に任せる
+			if (noResultEl) {
+				noResultEl.style.display = (rows.length > 0 && visibleCount === 0) ? '' : 'none';
+			}
+		}
+	</script>
+</body>
+</html>

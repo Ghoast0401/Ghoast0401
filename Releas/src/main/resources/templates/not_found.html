@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>食べトモ - 店舗が見つかりません</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="../static/css/style.css" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+	<div th:replace="~{fragments/header :: main-header(false)}"></div>
+
+	<main class="container">
+		<h2>店舗が見つかりませんでした</h2>
+		<p th:text="${errorMessage}">指定された店舗が見つかりませんでした。</p>
+		<a href="../index.html" th:href="@{/}" class="add-shop-btn" style="text-decoration: none;">店舗一覧に戻る</a>
+	</main>
+
+</body>
+</html>
